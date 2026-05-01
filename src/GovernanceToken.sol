@@ -15,9 +15,16 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
 
     constructor(address teamVesting, address treasury, address community, address liquidity) ERC20("GovernanceToken", "GOV") ERC20Permit("GovernanceToken") Ownable(msg.sender) {
         _mint(teamVesting, TEAM_ALLOCATION);
+        _delegate(teamVesting, teamVesting);
+
         _mint(treasury, TREASURY_ALLOCATION);
+         _delegate(treasury, treasury);
+
         _mint(community, COMMUNITY_ALLOCATION);
+        _delegate(community, community);
+
         _mint(liquidity, LIQUIDITY_ALLOCATION);
+        _delegate(liquidity, liquidity);
     }
 
     function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Votes) {
