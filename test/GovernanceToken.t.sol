@@ -19,8 +19,15 @@ contract GovernanceTokenTest is Test {
     uint256 constant TOTAL_SUPPLY = 1_000_000 * 10**18;
 
     function setUp() public {
-        vesting = new TokenVesting(address(0), teamVesting);
-        token = new GovernanceToken(address(vesting), treasury, community, liquidity);
+        address vestingPlaceholder = makeAddr("vestingPlaceholder");
+        token = new GovernanceToken(vestingPlaceholder, treasury, community, liquidity);
+        vesting = new TokenVesting(address(token), teamVesting);
+    
+        uint256 teamAmount = token.balanceOf(vestingPlaceholder);
+        vm.startPrank(vestingPlaceholder);
+        token.transfer(address(vesting), teamAmount);
+        vm.stopPrank();
+    
         vesting.updateTotalVestedAmount();
     }
 
