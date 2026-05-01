@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "openzeppelin-contracts/governance/Governor.sol";
-import "openzeppelin-contracts/governance/extensions/GovernorSettings.sol";
-import "openzeppelin-contracts/governance/extensions/GovernorCountingSimple.sol";
-import "openzeppelin-contracts/governance/extensions/GovernorVotes.sol";
-import "openzeppelin-contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import "openzeppelin-contracts/governance/extensions/GovernorTimelockControl.sol";
+import "@openzeppelin/contracts/governance/Governor.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 
 contract MyGovernor is
     Governor,
@@ -16,16 +16,21 @@ contract MyGovernor is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    constructor(IVotes _token, TimelockController _timelock)
+    uint48 public constant VOTING_DELAY_BLOCKS = 7_200;
+    uint32 public constant VOTING_PERIOD_BLOCKS = 50_400;
+    uint256 public constant PROPOSAL_THRESHOLD = 10_000 ether;
+    uint256 public constant QUORUM_PERCENT = 4;
+
+    constructor(IVotes governanceToken, TimelockController timelock)
         Governor("MyGovernor")
-        GovernorSettings(7200, 50400, 0)
-        GovernorVotes(_token)
-        GovernorVotesQuorumFraction(4) 
-        GovernorTimelockControl(_timelock)
+        GovernorSettings(VOTING_DELAY_BLOCKS, VOTING_PERIOD_BLOCKS, PROPOSAL_THRESHOLD)
+        GovernorVotes(governanceToken)
+        GovernorVotesQuorumFraction(QUORUM_PERCENT)
+        GovernorTimelockControl(timelock)
     {}
 
     function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
-        return IVotes(address(token())).getPastTotalSupply(block.number - 1) / 100;
+        return super.proposalThreshold();
     }
 
     function votingDelay() public view override(Governor, GovernorSettings) returns (uint256) {
@@ -44,23 +49,50 @@ contract MyGovernor is
         return super.state(proposalId);
     }
 
-    function propose(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) public override(Governor) returns (uint256) {
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public override(Governor) returns (uint256) {
         return super.propose(targets, values, calldatas, description);
     }
 
-    function _executeOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(Governor, GovernorTimelockControl) {
+    function _executeOperations(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) {
         super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
-    function _queueOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(Governor, GovernorTimelockControl) returns (uint48) {
+    function _queueOperations(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
         return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
-    function proposalNeedsQueuing(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (bool) {
+    function proposalNeedsQueuing(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (bool)
+    {
         return super.proposalNeedsQueuing(proposalId);
     }
 
-    function _cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(Governor, GovernorTimelockControl) returns (uint256) {
+    function _cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint256) {
         return super._cancel(targets, values, calldatas, descriptionHash);
     }
 

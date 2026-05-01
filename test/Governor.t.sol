@@ -2,281 +2,317 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import "@openzeppelin/contracts/governance/IGovernor.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
+import "../src/Box.sol";
 import "../src/GovernanceToken.sol";
 import "../src/MyGovernor.sol";
-import "../src/Box.sol";
-import "openzeppelin-contracts/governance/TimelockController.sol";
-
+import "../src/Treasury.sol";
 
 contract GovernorTest is Test {
-    GovernanceToken token;
-    MyGovernor governor;
-    TimelockController timelock;
-    Box box;
+    GovernanceToken private governanceToken;
+    MyGovernor private governor;
+    TimelockController private timelock;
+    Treasury private treasury;
+    Box private box;
 
-    address voter1 = makeAddr("voter1");   
-    address voter2 = makeAddr("voter2");   
-    address delegator = makeAddr("delegator");
-    address delegatee = makeAddr("delegatee");
-    address recipient = makeAddr("recipient");
+    address private teamReceiver = makeAddr("teamReceiver");
+    address private liquidityPool = makeAddr("liquidityPool");
+    address private proposer = makeAddr("proposer");
+    address private voter = makeAddr("voter");
+    address private lowPowerProposer = makeAddr("lowPowerProposer");
+    address private smallVoter = makeAddr("smallVoter");
+    address private delegator = makeAddr("delegator");
+    address private delegatee = makeAddr("delegatee");
+    address private treasuryRecipient = makeAddr("treasuryRecipient");
 
-    uint256 constant VOTING_DELAY = 7200;
-    uint256 constant VOTING_PERIOD = 50400;
-    uint256 constant TIMELOCK_DELAY = 2 days;
+    uint256 private constant VOTING_DELAY = 7_200;
+    uint256 private constant VOTING_PERIOD = 50_400;
+    uint256 private constant TIMELOCK_DELAY = 2 days;
 
     function setUp() public {
-        token = new GovernanceToken(makeAddr("team"), address(this), address(this),makeAddr("liquidity"));
+        governanceToken = new GovernanceToken(teamReceiver, address(this), address(this), liquidityPool);
 
-        address[] memory proposers = new address[](0);
-        address[] memory executors = new address[](1);
-        executors[0] = address(0); 
+        address[] memory initialProposers = new address[](0);
+        address[] memory initialExecutors = new address[](1);
+        initialExecutors[0] = address(0);
 
-        timelock = new TimelockController(
-            TIMELOCK_DELAY,
-            proposers,
-            executors,
-            address(this)
-        );
+        timelock = new TimelockController(TIMELOCK_DELAY, initialProposers, initialExecutors, address(this));
+        governor = new MyGovernor(governanceToken, timelock);
+        treasury = new Treasury(address(timelock));
+        box = new Box(address(timelock));
 
-        governor = new MyGovernor(token, timelock);
-
-        timelock.grantRole(timelock.PROPOSER_ROLE(),  address(governor));
+        timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.CANCELLER_ROLE(), address(governor));
         timelock.revokeRole(timelock.DEFAULT_ADMIN_ROLE(), address(this));
 
-        box = new Box(address(timelock));
+        assertTrue(governanceToken.transfer(address(treasury), governanceToken.TREASURY_ALLOCATION()));
+        assertTrue(governanceToken.transfer(proposer, 20_000 ether));
+        assertTrue(governanceToken.transfer(voter, 50_000 ether));
+        assertTrue(governanceToken.transfer(lowPowerProposer, 5_000 ether));
+        assertTrue(governanceToken.transfer(smallVoter, 15_000 ether));
+        assertTrue(governanceToken.transfer(delegator, 10_000 ether));
+        assertTrue(governanceToken.transfer(delegatee, 5_000 ether));
 
-        token.transfer(address(timelock), token.TREASURY_ALLOCATION());
-
-        token.transfer(voter1, 20_000e18);
-        vm.prank(voter1);
-        token.delegate(voter1);
-
-        token.transfer(voter2, 50_000e18);
-        vm.prank(voter2);
-        token.delegate(voter2);
-
-        token.transfer(delegator, 10_000e18);
-        token.transfer(delegatee, 5_000e18);
+        vm.prank(proposer);
+        governanceToken.delegate(proposer);
+        vm.prank(voter);
+        governanceToken.delegate(voter);
+        vm.prank(lowPowerProposer);
+        governanceToken.delegate(lowPowerProposer);
+        vm.prank(smallVoter);
+        governanceToken.delegate(smallVoter);
         vm.prank(delegatee);
-        token.delegate(delegatee);
+        governanceToken.delegate(delegatee);
         vm.prank(delegator);
-        token.delegate(delegatee); 
+        governanceToken.delegate(delegatee);
 
+        vm.deal(address(treasury), 5 ether);
         vm.roll(block.number + 1);
     }
 
-    function _propose(address target, bytes memory data, string memory desc) internal returns (uint256) {
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-        targets[0]   = target;
-        calldatas[0] = data;
-        vm.prank(voter1);
-        return governor.propose(targets, values, calldatas, desc);
+    function testGovernorConfigurationMatchesRequirements() public view {
+        assertEq(governor.votingDelay(), VOTING_DELAY);
+        assertEq(governor.votingPeriod(), VOTING_PERIOD);
+        assertEq(governor.proposalThreshold(), governanceToken.totalSupply() / 100);
+        assertEq(governor.quorum(block.number - 1), governanceToken.totalSupply() * 4 / 100);
+        assertEq(timelock.getMinDelay(), TIMELOCK_DELAY);
     }
 
-    function _voteAndPass(uint256 pid) internal {
-        vm.roll(block.number + VOTING_DELAY + 1);
-        vm.prank(voter2);
-        governor.castVote(pid, 1);
+    function testTimelockRolesMatchGovernanceRequirements() public view {
+        assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), address(governor)));
+        assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), address(governor)));
+        assertTrue(timelock.hasRole(timelock.EXECUTOR_ROLE(), address(0)));
+        assertFalse(timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), address(this)));
+        assertEq(treasury.owner(), address(timelock));
+        assertEq(box.owner(), address(timelock));
     }
 
-    function _queueAndExecute(address target, bytes memory data, string memory desc) internal {
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-        targets[0]   = target;
-        calldatas[0] = data;
-        vm.roll(block.number + VOTING_PERIOD + 1);
-        governor.queue(targets, values, calldatas, keccak256(bytes(desc)));
-        vm.warp(block.timestamp + TIMELOCK_DELAY + 1);
-        governor.execute(targets, values, calldatas, keccak256(bytes(desc)));
-    }
+    function testProposerBelowThresholdCannotCreateProposal() public {
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        targets[0] = address(box);
+        calldatas[0] = abi.encodeWithSelector(Box.store.selector, 1);
 
-    function test_ProposalThreshold() public view {
-        assertEq(governor.proposalThreshold(), token.totalSupply() / 100);
-    }
-
-    function test_CannotProposeBelowThreshold() public {
-        address poor = makeAddr("poor");
-        token.transfer(poor, 100e18); 
-        vm.prank(poor);
-        token.delegate(poor);
-        vm.roll(block.number + 1);
-
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-
-        vm.prank(poor);
+        vm.prank(lowPowerProposer);
         vm.expectRevert();
-        governor.propose(targets, values, calldatas, "fail");
+        governor.propose(targets, values, calldatas, "Below threshold proposal");
     }
 
-    function test_QuorumIs4Percent() public view {
-        assertEq(governor.quorum(block.number - 1), token.totalSupply() * 4 / 100);
-    }
+    function testVoteCannotBeCastDuringVotingDelay() public {
+        Proposal memory proposal =
+            _createProposal(address(box), 0, abi.encodeWithSelector(Box.store.selector, 10), "Early vote");
 
-    function test_CannotVoteDuringDelay() public {
-        uint256 pid = _propose(address(box), abi.encodeWithSelector(Box.setValue.selector, 10), "too early");
-        vm.prank(voter2);
+        vm.prank(voter);
         vm.expectRevert();
-        governor.castVote(pid, 1);
+        governor.castVote(proposal.id, 1);
     }
 
-    function test_FullLifecycle_ChangeValue() public {
-        console.log("\n=== PROPOSAL: Change Box Value ===");
-        string memory desc = "Set box value to 42";
-        bytes memory data  = abi.encodeWithSelector(Box.setValue.selector, 42);
+    function testFullLifecycleStoresFortyTwoInBox() public {
+        Proposal memory proposal =
+            _createProposal(address(box), 0, abi.encodeWithSelector(Box.store.selector, 42), "Store 42 in Box");
 
-        uint256 pid = _propose(address(box), data, desc);
-        console.log("1. Proposed. ID:", pid);
+        _castPassingVote(proposal.id);
+        _queueProposal(proposal);
+        _executeQueuedProposal(proposal);
 
-        _voteAndPass(pid);
-        console.log("2. Voted FOR");
-
-        _queueAndExecute(address(box), data, desc);
-        console.log("3. Queued and Executed");
-        console.log("4. Box value:", box.value());
-
-        assertEq(box.value(), 42);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Executed));
+        assertEq(box.retrieve(), 42);
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Executed));
     }
 
-    function test_FullLifecycle_TransferTokens() public {
-        console.log("\n=== PROPOSAL: Transfer Tokens from Treasury ===");
-        string memory desc = "Transfer 1000 GOV to recipient";
-        bytes memory data = abi.encodeWithSelector(bytes4(keccak256("transfer(address,uint256)")), recipient, 1000e18);
+    function testFullLifecycleTransfersTokensFromTreasury() public {
+        uint256 transferAmount = 1_000 ether;
+        Proposal memory proposal = _createProposal(
+            address(treasury),
+            0,
+            abi.encodeWithSelector(
+                Treasury.transferTokens.selector, address(governanceToken), treasuryRecipient, transferAmount
+            ),
+            "Transfer treasury tokens"
+        );
 
-        uint256 pid = _propose(address(token), data, desc);
-        console.log("1. Proposed. ID:", pid);
+        _castPassingVote(proposal.id);
+        _queueProposal(proposal);
+        _executeQueuedProposal(proposal);
 
-        _voteAndPass(pid);
-        console.log("2. Voted FOR");
-
-        _queueAndExecute(address(token), data, desc);
-        console.log("3. Queued and Executed");
-        console.log("4. Recipient balance:", token.balanceOf(recipient) / 1e18, "GOV");
-
-        assertEq(token.balanceOf(recipient), 1000e18);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Executed));
+        assertEq(governanceToken.balanceOf(treasuryRecipient), transferAmount);
     }
 
-    function test_DelegateeVotesForDelegator() public {
-        uint256 pid = _propose(address(box), abi.encodeWithSelector(Box.setValue.selector, 99), "delegation test");
+    function testFullLifecycleTransfersEthFromTreasury() public {
+        uint256 transferAmount = 1 ether;
+        Proposal memory proposal = _createProposal(
+            address(treasury),
+            0,
+            abi.encodeWithSelector(Treasury.transferEth.selector, payable(treasuryRecipient), transferAmount),
+            "Transfer treasury ETH"
+        );
+
+        _castPassingVote(proposal.id);
+        _queueProposal(proposal);
+        _executeQueuedProposal(proposal);
+
+        assertEq(treasuryRecipient.balance, transferAmount);
+    }
+
+    function testFullLifecycleChangesTreasuryParameter() public {
+        uint256 newSpendingLimit = 25_000 ether;
+        Proposal memory proposal = _createProposal(
+            address(treasury),
+            0,
+            abi.encodeWithSelector(Treasury.updateSpendingLimit.selector, newSpendingLimit),
+            "Update treasury spending limit"
+        );
+
+        _castPassingVote(proposal.id);
+        _queueProposal(proposal);
+        _executeQueuedProposal(proposal);
+
+        assertEq(treasury.spendingLimit(), newSpendingLimit);
+    }
+
+    function testDelegateeVotesWithDelegatorVotingPower() public {
+        Proposal memory proposal =
+            _createProposal(address(box), 0, abi.encodeWithSelector(Box.store.selector, 99), "Delegated vote");
+
         vm.roll(block.number + VOTING_DELAY + 1);
 
-        uint256 weight = governor.getVotes(delegatee, block.number - 1);
-        assertGt(weight, 5_000e18);
+        uint256 delegateeVotingPower = governor.getVotes(delegatee, block.number - 1);
 
         vm.prank(delegatee);
-        governor.castVote(pid, 1);
+        governor.castVote(proposal.id, 1);
 
-        (, uint256 forVotes,) = governor.proposalVotes(pid);
-        assertEq(forVotes, weight);
+        (, uint256 forVotes,) = governor.proposalVotes(proposal.id);
+
+        assertEq(delegateeVotingPower, 15_000 ether);
+        assertEq(forVotes, delegateeVotingPower);
     }
 
-    function test_ProposalDefeated_QuorumNotMet() public {
-        address tinyVoter = makeAddr("tiny");
-        token.transfer(tinyVoter, 15_000e18); 
-        vm.prank(tinyVoter);
-        token.delegate(tinyVoter);
-        vm.roll(block.number + 1);
-
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-        targets[0]   = address(box);
-        calldatas[0] = abi.encodeWithSelector(Box.setValue.selector, 99);
-
-        vm.prank(tinyVoter);
-        uint256 pid = governor.propose(targets, values, calldatas, "low quorum");
-
-        vm.roll(block.number + VOTING_DELAY + 1);
-        vm.prank(tinyVoter);
-        governor.castVote(pid, 1); 
-
-        vm.roll(block.number + VOTING_PERIOD + 1);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Defeated));
-    }
-
-    function test_ProposalDefeated_VotedAgainst() public {
-        uint256 pid = _propose(
-            address(box),
-            abi.encodeWithSelector(Box.setValue.selector, 99),
-            "bad proposal"
+    function testProposalIsDefeatedWhenQuorumIsNotMet() public {
+        Proposal memory proposal = _createProposalAs(
+            smallVoter, address(box), 0, abi.encodeWithSelector(Box.store.selector, 77), "Low quorum"
         );
-        vm.roll(block.number + VOTING_DELAY + 1);
 
-        vm.prank(voter2);
-        governor.castVote(pid, 0); 
+        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.prank(smallVoter);
+        governor.castVote(proposal.id, 1);
 
         vm.roll(block.number + VOTING_PERIOD + 1);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Defeated));
+
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Defeated));
     }
 
-    function test_CannotExecuteBeforeTimelockDelay() public {
-        string memory desc = "timelock test";
-        bytes memory data  = abi.encodeWithSelector(Box.setValue.selector, 7);
+    function testProposalIsDefeatedWhenAgainstVotesWin() public {
+        Proposal memory proposal = _createProposal(
+            address(box), 0, abi.encodeWithSelector(Box.store.selector, 123), "Defeated by against votes"
+        );
 
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-        targets[0]   = address(box);
-        calldatas[0] = data;
+        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.prank(voter);
+        governor.castVote(proposal.id, 0);
 
-        uint256 pid = _propose(address(box), data, desc);
-        _voteAndPass(pid);
         vm.roll(block.number + VOTING_PERIOD + 1);
 
-        governor.queue(targets, values, calldatas, keccak256(bytes(desc)));
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Defeated));
+    }
+
+    function testProposalCannotExecuteBeforeTimelockDelay() public {
+        Proposal memory proposal =
+            _createProposal(address(box), 0, abi.encodeWithSelector(Box.store.selector, 7), "Timelock delay");
+
+        _castPassingVote(proposal.id);
+        _queueProposal(proposal);
 
         vm.expectRevert();
-        governor.execute(targets, values, calldatas, keccak256(bytes(desc)));
+        governor.execute(proposal.targets, proposal.values, proposal.calldatas, proposal.descriptionHash);
     }
 
-    function test_StateTransitions() public {
-        console.log("\n=== STATE TRANSITIONS ===");
-        string memory desc = "state test";
-        bytes memory data  = abi.encodeWithSelector(Box.setValue.selector, 3);
+    function testStateTransitionsFollowFullLifecycle() public {
+        Proposal memory proposal =
+            _createProposal(address(box), 0, abi.encodeWithSelector(Box.store.selector, 3), "State transitions");
 
-        address[] memory targets   = new address[](1);
-        uint256[] memory values    = new uint256[](1);
-        bytes[]   memory calldatas = new bytes[](1);
-        targets[0]   = address(box);
-        calldatas[0] = data;
-
-        uint256 pid = _propose(address(box), data, desc);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Pending));
-        console.log("State: Pending");
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Pending));
 
         vm.roll(block.number + VOTING_DELAY + 1);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Active));
-        console.log("State: Active");
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Active));
 
-        vm.prank(voter2);
-        governor.castVote(pid, 1);
+        vm.prank(voter);
+        governor.castVote(proposal.id, 1);
 
         vm.roll(block.number + VOTING_PERIOD + 1);
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Succeeded));
-        console.log("State: Succeeded");
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Succeeded));
 
-        governor.queue(targets, values, calldatas, keccak256(bytes(desc)));
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Queued));
-        console.log("State: Queued");
+        _queueProposal(proposal);
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Queued));
 
+        _executeQueuedProposal(proposal);
+        assertEq(uint256(governor.state(proposal.id)), uint256(IGovernor.ProposalState.Executed));
+    }
+
+    function testDirectTreasuryAndBoxCallsAreBlocked() public {
+        vm.prank(proposer);
+        vm.expectRevert();
+        treasury.transferTokens(address(governanceToken), treasuryRecipient, 1 ether);
+
+        vm.prank(proposer);
+        vm.expectRevert();
+        box.store(1);
+    }
+
+    struct Proposal {
+        uint256 id;
+        address[] targets;
+        uint256[] values;
+        bytes[] calldatas;
+        bytes32 descriptionHash;
+    }
+
+    function _createProposal(address target, uint256 value, bytes memory calldataBytes, string memory description)
+        private
+        returns (Proposal memory proposal)
+    {
+        return _createProposalAs(proposer, target, value, calldataBytes, description);
+    }
+
+    function _createProposalAs(
+        address proposalCreator,
+        address target,
+        uint256 value,
+        bytes memory calldataBytes,
+        string memory description
+    ) private returns (Proposal memory proposal) {
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+
+        targets[0] = target;
+        values[0] = value;
+        calldatas[0] = calldataBytes;
+
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        vm.prank(proposalCreator);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+
+        proposal = Proposal(proposalId, targets, values, calldatas, descriptionHash);
+    }
+
+    function _castPassingVote(uint256 proposalId) private {
+        vm.roll(block.number + VOTING_DELAY + 1);
+
+        vm.prank(voter);
+        governor.castVote(proposalId, 1);
+    }
+
+    function _queueProposal(Proposal memory proposal) private {
+        vm.roll(block.number + VOTING_PERIOD + 1);
+
+        governor.queue(proposal.targets, proposal.values, proposal.calldatas, proposal.descriptionHash);
+    }
+
+    function _executeQueuedProposal(Proposal memory proposal) private {
         vm.warp(block.timestamp + TIMELOCK_DELAY + 1);
-        governor.execute(targets, values, calldatas, keccak256(bytes(desc)));
-        assertEq(uint(governor.state(pid)), uint(IGovernor.ProposalState.Executed));
-        console.log("State: Executed");
-    }
 
-    function test_TimelockOwnsBox() public {
-        assertEq(box.owner(), address(timelock));
-        vm.prank(voter1);
-        vm.expectRevert();
-        box.setValue(999);
+        governor.execute(proposal.targets, proposal.values, proposal.calldatas, proposal.descriptionHash);
     }
 }

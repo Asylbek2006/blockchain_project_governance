@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Box is Ownable {
-    uint256 public value;
     uint256 private storedValue;
 
     event ValueChanged(uint256 newValue);
@@ -16,11 +15,7 @@ contract Box is Ownable {
         emit ValueChanged(newValue);
     }
 
-    function retrieve() public view returns(uint256) {
+    function retrieve() public view returns (uint256) {
         return storedValue;
-    }
-
-    function setValue(uint256 newValue) external {
-        value = newValue;
     }
 }

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>DAO Governance</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <main class="app-shell">
+            <section class="topbar">
+                <div>
+                    <h1>DAO Governance</h1>
+                    <p>Token voting, delegation, proposal status, and vote casting.</p>
+                </div>
+                <button id="connectWalletButton">Connect Wallet</button>
+            </section>
+
+            <section class="grid">
+                <article class="panel">
+                    <h2>Contracts</h2>
+                    <label>Token address<input id="tokenAddressInput" placeholder="0x..." /></label>
+                    <label>Governor address<input id="governorAddressInput" placeholder="0x..." /></label>
+                    <button id="saveContractsButton">Save Contracts</button>
+                </article>
+
+                <article class="panel">
+                    <h2>Wallet</h2>
+                    <dl>
+                        <div><dt>Account</dt><dd id="accountValue">Not connected</dd></div>
+                        <div><dt>Balance</dt><dd id="tokenBalanceValue">0 GOV</dd></div>
+                        <div><dt>Voting power</dt><dd id="votingPowerValue">0 GOV</dd></div>
+                        <div><dt>Delegate</dt><dd id="delegateValue">None</dd></div>
+                    </dl>
+                </article>
+
+                <article class="panel">
+                    <h2>Delegate</h2>
+                    <label>Delegate address<input id="delegateAddressInput" placeholder="0x..." /></label>
+                    <button id="delegateVotesButton">Delegate Votes</button>
+                </article>
+
+                <article class="panel">
+                    <h2>Proposal</h2>
+                    <label>Proposal ID<input id="proposalIdInput" placeholder="0" /></label>
+                    <button id="loadProposalButton">Load Proposal</button>
+                    <div class="segmented">
+                        <button data-support="0">Against</button>
+                        <button data-support="1">For</button>
+                        <button data-support="2">Abstain</button>
+                    </div>
+                </article>
+            </section>
+
+            <section class="panel proposals-panel">
+                <h2>Tracked Proposals</h2>
+                <div id="proposalList" class="proposal-list"></div>
+            </section>
+
+            <section class="panel">
+                <h2>Activity</h2>
+                <pre id="activityLog"></pre>
+            </section>
+        </main>
+
+        <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+        <script src="app.js"></script>
+    </body>
+</html>
