@@ -51,4 +51,3 @@ contract TokenVesting {
         totalVestedAmount = governanceToken.balanceOf(address(this)) + totalReleasedAmount;
     }
 }
-
