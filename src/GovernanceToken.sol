@@ -18,6 +18,11 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
         _mint(treasury, TREASURY_ALLOCATION);
         _mint(community, COMMUNITY_ALLOCATION);
         _mint(liquidity, LIQUIDITY_ALLOCATION);
+
+        _delegate(teamVesting, teamVesting);
+        _delegate(treasury, treasury);
+        _delegate(community, community);
+        _delegate(liquidity, liquidity);
     }
 
     function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Votes) {
