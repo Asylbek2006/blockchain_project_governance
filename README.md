@@ -68,3 +68,8 @@ Open `frontend/index.html` in a browser or serve the folder with any static serv
 | `docs/defense-preparation.md` | Defense script, expected questions, video structure |
 | `docs/governance-execution-log.md` | Proposal lifecycle execution log and screenshot checklist |
 | `docs/gas-cost-summary.md` | Gas cost table for demo and final video |
+
+
+deploy:
+
+forge script script/Deploy.s.sol:Deploy --rpc-url https://sepolia.drpc.org --private-key 0x0dc427806fe66a292518325e474805faf44f5b5ebbd0501b628fd342ba7e015b --broadcast 

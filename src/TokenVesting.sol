@@ -1,60 +1,47 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract TokenVesting {
-    IERC20 public governanceToken;
-    address public teamBeneficiary;
-    uint256 public vestingStartTime;
-    uint256 public vestingDuration = 365 days;
-    uint256 public totalVestedAmount;
-    uint256 public totalReleasedAmount;
+    IERC20 public immutable token;
+    address public immutable beneficiary;
 
-    event TokensReleased(address indexed beneficiary, uint256 amount);
+    uint256 public immutable start;
+    uint256 public immutable duration;
 
-    constructor(address _governanceToken, address _teamBeneficiary) {
-        require(_governanceToken != address(0), "Zero token address");
-        require(_teamBeneficiary != address(0), "Zero beneficiary address");
+    uint256 public released;
 
-        governanceToken = IERC20(_governanceToken);
-        teamBeneficiary = _teamBeneficiary;
-        vestingStartTime = block.timestamp;
-        totalVestedAmount = governanceToken.balanceOf(address(this));
+    constructor(address _token, address _beneficiary, uint256 _start, uint256 _duration) {
+        require(_beneficiary != address(0), "zero addr");
+
+        token = IERC20(_token);
+        beneficiary = _beneficiary;
+        start = _start;
+        duration = _duration;
     }
 
-    function releasableAmount() public view returns (uint256) {
-        return vestedAmount() - totalReleasedAmount;
+    function releasable() public view returns (uint256) {
+        return vestedAmount(block.timestamp) - released;
     }
 
-    function vestedAmount() public view returns (uint256) {
-        if (block.timestamp < vestingStartTime) {
+    function vestedAmount(uint256 timestamp) public view returns (uint256) {
+        uint256 total = token.balanceOf(address(this)) + released;
+
+        if (timestamp < start) {
             return 0;
+        } else if (timestamp >= start + duration) {
+            return total;
+        } else {
+            return (total * (timestamp - start)) / duration;
         }
-
-        uint256 elapsedTime = block.timestamp - vestingStartTime;
-
-        if (elapsedTime >= vestingDuration) {
-            return totalVestedAmount;
-        }
-
-        return (totalVestedAmount * elapsedTime) / vestingDuration;
     }
 
-    function release() public {
-        require(msg.sender == teamBeneficiary, "Not beneficiary");
+    function release() external {
+        uint256 amount = releasable();
+        require(amount > 0, "nothing to release");
 
-        uint256 amount = releasableAmount();
-
-        require(amount > 0, "No tokens to release");
-
-        totalReleasedAmount += amount;
-        require(governanceToken.transfer(teamBeneficiary, amount), "Transfer failed");
-
-        emit TokensReleased(teamBeneficiary, amount);
-    }
-
-    function updateTotalVestedAmount() public {
-        totalVestedAmount = governanceToken.balanceOf(address(this)) + totalReleasedAmount;
+        released += amount;
+        token.transfer(beneficiary, amount);
     }
 }

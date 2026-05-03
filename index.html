@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DAO Governance</title>
+</head>
+<body>
+
+    <div style="border:1px solid black; width:50%; padding:10px">
+        <h1>DAO Governance</h1>
+        <button onclick="connect()">Connect Wallet</button>
+        <p id="account"></p>
+
+        <h2>Wallet Info</h2>
+        <p>Token Balance: <span id="balance"></span></p>
+        <p>Voting Power: <span id="votes"></span></p>
+        <p>Delegate: <span id="delegate"></span></p>
+
+        <h2>Delegate Votes</h2>
+        <input id="delegateTo" placeholder="Address">
+        <button onclick="delegate()">Delegate</button>
+
+        <h2>Create Proposal</h2>
+        <button onclick="createProposal()">Create Proposal</button>
+        <p id="proposalStatus"></p>
+
+        <h2>Proposals</h2>
+        <button onclick="loadProposals()">Load Proposals</button>
+        <div id="proposals"></div>
+    </div>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
