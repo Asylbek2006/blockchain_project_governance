@@ -1,18 +1,23 @@
 # Gas Cost Summary
 
-Local Foundry test gas from `forge test -vv`:
+Generate the final gas report with:
 
-| Action | Test | Gas |
-| --- | --- | ---: |
-| Box governance lifecycle | `testEndToEndGovernanceStoresValueInBox` | 359,519 |
-| Treasury ETH transfer lifecycle | `testEndToEndGovernanceTransfersEthFromTreasury` | 344,250 |
-| Treasury token transfer lifecycle | `testEndToEndGovernanceTransfersTokensFromTreasury` | 354,840 |
-| Governor Box lifecycle | `testFullLifecycleStoresFortyTwoInBox` | 327,559 |
-| Governor treasury token transfer | `testFullLifecycleTransfersTokensFromTreasury` | 350,020 |
-| Governor treasury ETH transfer | `testFullLifecycleTransfersEthFromTreasury` | 343,311 |
-| Treasury parameter change | `testFullLifecycleChangesTreasuryParameter` | 325,081 |
-| Permit approval | `testPermitApprovesSpenderWithSignedMessage` | 114,560 |
-| Self delegation | `testHolderCanDelegateVotesToSelf` | 88,729 |
-| Delegation to representative | `testHolderCanDelegateVotesToAnotherAccount` | 94,739 |
+```bash
+forge test --gas-report
+```
 
-Use `forge snapshot` before final submission if your instructor asks for a dedicated `.gas-snapshot` file.
+Record the final numbers in this table before submission:
+
+| Action | Test |
+| --- | --- |
+| Token delegation | `test_Delegation` |
+| Voting power snapshot | `test_PastVotes` |
+| Permit approval | `test_Permit` |
+| Vesting release | `test_VestingFull` |
+| Box governance lifecycle | `test_FullProposalLifecycleStoresBoxValue` |
+| Treasury token transfer lifecycle | `test_TreasuryTransfersTokensThroughGovernance` |
+| Treasury parameter change | `test_GovernanceChangesTreasuryParameter` |
+| Delegated voting | `test_DelegateeVotesOnBehalfOfDelegator` |
+| Failed quorum proposal | `test_ProposalFailsWhenQuorumIsNotMet` |
+
+Use `forge snapshot` if your instructor asks for a dedicated `.gas-snapshot` file.

@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract TokenVesting {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable token;
     address public immutable beneficiary;
 
@@ -12,13 +15,17 @@ contract TokenVesting {
 
     uint256 public released;
 
-    constructor(address _token, address _beneficiary, uint256 _start, uint256 _duration) {
-        require(_beneficiary != address(0), "zero addr");
+    event TokensReleased(address indexed beneficiary, uint256 amount);
 
-        token = IERC20(_token);
-        beneficiary = _beneficiary;
-        start = _start;
-        duration = _duration;
+    constructor(address tokenAddress, address beneficiaryAddress, uint256 startTimestamp, uint256 vestingDuration) {
+        require(tokenAddress != address(0), "Invalid token");
+        require(beneficiaryAddress != address(0), "Invalid beneficiary");
+        require(vestingDuration > 0, "Invalid duration");
+
+        token = IERC20(tokenAddress);
+        beneficiary = beneficiaryAddress;
+        start = startTimestamp;
+        duration = vestingDuration;
     }
 
     function releasable() public view returns (uint256) {
@@ -42,6 +49,8 @@ contract TokenVesting {
         require(amount > 0, "nothing to release");
 
         released += amount;
-        token.transfer(beneficiary, amount);
+        token.safeTransfer(beneficiary, amount);
+
+        emit TokensReleased(beneficiary, amount);
     }
 }

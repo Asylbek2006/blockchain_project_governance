@@ -45,8 +45,8 @@ contract FullDAOTest is Test {
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
         timelock.revokeRole(timelock.PROPOSER_ROLE(), address(this));
 
-        token.transfer(user1, 2_000_000);
-        token.transfer(user2, 2_000_000);
+        token.transfer(user1, 2_000_000 ether);
+        token.transfer(user2, 2_000_000 ether);
 
         token.delegate(address(this));
 

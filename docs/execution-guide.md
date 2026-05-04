@@ -3,28 +3,47 @@
 ## Local Test Run
 
 1. Install Foundry.
-2. Run `forge build`.
-3. Run `forge test -vv`.
-4. Confirm the test result shows 24 passing tests.
+2. Run `forge fmt`.
+3. Run `forge build`.
+4. Run `forge test -vv`.
+5. Confirm every test passes.
 
 ## Local Deployment
 
 1. Start Anvil with `anvil`.
 2. Export deployment variables:
 
-```powershell
-$env:TEAM_BENEFICIARY="0x..."
-$env:COMMUNITY_AIRDROP="0x..."
-$env:LIQUIDITY_POOL="0x..."
+```bash
+export PRIVATE_KEY="0x..."
+export TEAM_WALLET="0x..."
+export COMMUNITY_AIRDROP_WALLET="0x..."
+export LIQUIDITY_POOL_WALLET="0x..."
 ```
 
 3. Deploy:
 
-```powershell
-forge script script/DeployDao.s.sol:DeployDao --rpc-url http://127.0.0.1:8545 --private-key <PRIVATE_KEY> --broadcast
+```bash
+forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 --broadcast
 ```
 
-4. Copy addresses from `deployment-addresses.json` into `frontend/index.html` through the UI fields.
+4. Copy the printed `GovernanceToken` and `MyGovernor` addresses into the frontend contract fields.
+
+## Testnet Deployment
+
+```bash
+forge script script/Deploy.s.sol:Deploy --rpc-url sepolia --broadcast --verify
+```
+
+Required environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `PRIVATE_KEY` | Deployment wallet private key |
+| `RPC_URL` | Sepolia RPC endpoint from `foundry.toml` |
+| `ETHERSCAN_API_KEY` | Contract verification |
+| `TEAM_WALLET` | Team vesting beneficiary |
+| `COMMUNITY_AIRDROP_WALLET` | Community allocation receiver |
+| `LIQUIDITY_POOL_WALLET` | Liquidity allocation receiver |
 
 ## Governance Lifecycle Demo
 
@@ -39,8 +58,6 @@ forge script script/DeployDao.s.sol:DeployDao --rpc-url http://127.0.0.1:8545 --
 9. Verify the target state changed.
 
 ## Required Screenshots
-
-Take screenshots for these moments:
 
 1. Successful deployment transaction.
 2. Initial token distribution balances.

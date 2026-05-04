@@ -5,7 +5,7 @@
 1. Show `GovernanceToken.sol` and explain ERC20Votes plus ERC20Permit.
 2. Show the distribution constants: 40% team, 30% treasury, 20% community, 10% liquidity.
 3. Show `TokenVesting.sol` and explain linear release over 365 days.
-4. Run `forge test -vv` and point to the 24 passing tests.
+4. Run `forge test -vv` and point to the passing token, governance, and end-to-end tests.
 5. Show `MyGovernor.sol` parameters: 7,200 block delay, 50,400 block period, 1% threshold, 4% quorum.
 6. Show Timelock ownership of `Treasury` and `Box`.
 7. Demonstrate `Box.store(42)` through governance.

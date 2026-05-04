@@ -16,14 +16,8 @@ This project implements a complete DAO governance system with an ERC20Votes toke
 
 Run:
 
-```powershell
+```bash
 forge test -vv
-```
-
-Current local result:
-
-```text
-28 tests passed, 0 failed
 ```
 
 Coverage by test suite:
@@ -31,26 +25,27 @@ Coverage by test suite:
 | Test file | Coverage |
 | --- | --- |
 | `test/GovernanceToken.t.sol` | Distribution, delegation, snapshots, permit signatures, vesting |
-| `test/Governor.t.sol` | Proposal lifecycle, treasury transfers, parameter changes, Box.store(42), delegated voting, defeated proposals, timelock delay |
-| `test/TreasuryAndBox.t.sol` | Task 3 end-to-end governance test: propose, vote, queue, execute, verify |
+| `test/Governance.t.sol` | Proposal lifecycle, treasury transfers, parameter changes, Box.store(42), delegated voting, defeated proposals, timelock delay |
+| `test/end_to_end_test.t.sol` | Task 3 end-to-end governance test: propose, vote, queue, execute, verify |
 
 ## Deployment
 
 Set environment variables:
 
-```powershell
-$env:TEAM_BENEFICIARY="0x..."
-$env:COMMUNITY_AIRDROP="0x..."
-$env:LIQUIDITY_POOL="0x..."
+```bash
+export PRIVATE_KEY="0x..."
+export TEAM_WALLET="0x..."
+export COMMUNITY_AIRDROP_WALLET="0x..."
+export LIQUIDITY_POOL_WALLET="0x..."
 ```
 
 Deploy:
 
-```powershell
-forge script script/DeployDao.s.sol:DeployDao --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
+```bash
+forge script script/Deploy.s.sol:Deploy --rpc-url sepolia --broadcast --verify
 ```
 
-The script writes deployed addresses to `deployment-addresses.json`.
+The script prints deployed contract addresses to the terminal.
 
 ## Frontend
 
@@ -68,8 +63,3 @@ Open `frontend/index.html` in a browser or serve the folder with any static serv
 | `docs/defense-preparation.md` | Defense script, expected questions, video structure |
 | `docs/governance-execution-log.md` | Proposal lifecycle execution log and screenshot checklist |
 | `docs/gas-cost-summary.md` | Gas cost table for demo and final video |
-
-
-deploy:
-
-forge script script/Deploy.s.sol:Deploy --rpc-url https://sepolia.drpc.org --private-key 0x0dc427806fe66a292518325e474805faf44f5b5ebbd0501b628fd342ba7e015b --broadcast 

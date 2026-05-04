@@ -1,6 +1,6 @@
 # Governance Execution Log
 
-Use this document during the final demo. Replace placeholder transaction hashes and screenshot filenames with your own testnet results.
+Use this document during the final demo. Replace placeholder transaction hashes and screenshot filenames with your own local or Sepolia results.
 
 ## Environment
 
@@ -10,16 +10,20 @@ Use this document during the final demo. Replace placeholder transaction hashes 
 | Voting delay | 7,200 blocks |
 | Voting period | 50,400 blocks |
 | Timelock delay | 2 days |
-| Proposal threshold | 10,000 GOV |
-| Quorum | 40,000 GOV |
+| Proposal threshold | 1,000,000 GOV |
+| Quorum | 4,000,000 GOV |
 
 ## Deployment
 
-1. Deploy `GovernanceToken`, `TokenVesting`, `TimelockController`, `MyGovernor`, `Treasury`, and `Box`.
-2. Transfer 400,000 GOV to `TokenVesting`.
-3. Transfer 300,000 GOV to `Treasury`.
-4. Grant proposer and canceller roles to `MyGovernor`.
-5. Revoke deployer admin role from `TimelockController`.
+1. Deploy `TimelockController`.
+2. Deploy `Treasury` controlled by `TimelockController`.
+3. Deploy `GovernanceToken` with the 40/30/20/10 distribution.
+4. Deploy `TokenVesting` for the team allocation.
+5. Deploy `Box` owned by `TimelockController`.
+6. Deploy `MyGovernor`.
+7. Grant proposer and canceller roles to `MyGovernor`.
+8. Grant open executor role to `address(0)`.
+9. Revoke deployer admin role from `TimelockController`.
 
 Screenshot: `screenshots/01-deployment.png`
 
@@ -77,7 +81,7 @@ Screenshot: `screenshots/06-executed-box-42.png`
 
 ## Treasury Proposal
 
-1. Encode calldata with `Treasury.transferTokens(token, recipient, amount)`.
+1. Encode calldata with `Treasury.transferERC20(token, recipient, amount)`.
 2. Complete propose, vote, queue, execute.
 3. Confirm recipient token balance increased.
 

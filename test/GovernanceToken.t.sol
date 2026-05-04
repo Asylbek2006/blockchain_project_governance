@@ -7,13 +7,13 @@ import "../src/TokenVesting.sol";
 
 contract GovernanceTokenTest is Test {
     GovernanceToken token;
-    TokenVesting    vesting;
+    TokenVesting vesting;
 
-    address team      = address(1);
-    address treasury  = address(2);
+    address team = address(1);
+    address treasury = address(2);
     address community = address(3);
     address liquidity = address(4);
-    address user      = address(5);
+    address user = address(5);
 
     function setUp() public {
         address vestingAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
@@ -23,25 +23,25 @@ contract GovernanceTokenTest is Test {
     }
 
     function test_InitialDistribution() public view {
-        assertEq(token.balanceOf(address(vesting)), 40_000_000);
-        assertEq(token.balanceOf(treasury),         30_000_000);
-        assertEq(token.balanceOf(community),        20_000_000);
-        assertEq(token.balanceOf(liquidity),        10_000_000);
-        assertEq(token.totalSupply(),              100_000_000);
+        assertEq(token.balanceOf(address(vesting)), 40_000_000 ether);
+        assertEq(token.balanceOf(treasury), 30_000_000 ether);
+        assertEq(token.balanceOf(community), 20_000_000 ether);
+        assertEq(token.balanceOf(liquidity), 10_000_000 ether);
+        assertEq(token.totalSupply(), 100_000_000 ether);
     }
 
     function test_Delegation() public {
         vm.prank(treasury);
         token.delegate(treasury);
-        assertEq(token.getVotes(treasury), 30_000_000);
+        assertEq(token.getVotes(treasury), 30_000_000 ether);
     }
 
     function test_TransferUpdatesVotes() public {
         vm.prank(treasury);
         token.delegate(treasury);
         vm.prank(treasury);
-        token.transfer(user, 100);
-        assertEq(token.getVotes(treasury), 29_999_900);
+        token.transfer(user, 100 ether);
+        assertEq(token.getVotes(treasury), 29_999_900 ether);
     }
 
     function test_PastVotes() public {
@@ -50,16 +50,16 @@ contract GovernanceTokenTest is Test {
         uint256 block1 = block.number;
         vm.roll(block1 + 1);
         vm.prank(treasury);
-        token.transfer(user, 100);
-        assertEq(token.getPastVotes(treasury, block1), 30_000_000);
+        token.transfer(user, 100 ether);
+        assertEq(token.getPastVotes(treasury, block1), 30_000_000 ether);
     }
 
     function test_Permit() public {
         uint256 privateKey = 0xABC12;
         address owner      = vm.addr(privateKey);
         vm.prank(treasury);
-        token.transfer(owner, 100);
-        uint256 nonce    = token.nonces(owner);
+        token.transfer(owner, 100 ether);
+        uint256 nonce = token.nonces(owner);
         uint256 deadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -69,7 +69,7 @@ contract GovernanceTokenTest is Test {
                     keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
                     owner,
                     user,
-                    50,
+                    50 ether,
                     nonce,
                     deadline
                 ))
@@ -77,8 +77,8 @@ contract GovernanceTokenTest is Test {
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        token.permit(owner, user, 50, deadline, v, r, s);
-        assertEq(token.allowance(owner, user), 50);
+        token.permit(owner, user, 50 ether, deadline, v, r, s);
+        assertEq(token.allowance(owner, user), 50 ether);
     }
 
     function test_VestingBeforeStart() public view {
@@ -94,10 +94,10 @@ contract GovernanceTokenTest is Test {
     function test_VestingFull() public {
         vm.warp(block.timestamp + 365 days);
         uint256 amount = vesting.releasable();
-        assertEq(amount, 40_000_000);
+        assertEq(amount, 40_000_000 ether);
         vm.prank(team);
         vesting.release();
-        assertEq(token.balanceOf(team), 40_000_000);
-        assertEq(vesting.released(),    40_000_000);
+        assertEq(token.balanceOf(team), 40_000_000 ether);
+        assertEq(vesting.released(), 40_000_000 ether);
     }
 }

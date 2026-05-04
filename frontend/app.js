@@ -2,10 +2,11 @@ const tokenAbi = [
     "function balanceOf(address account) view returns (uint256)",
     "function delegates(address account) view returns (address)",
     "function getVotes(address account) view returns (uint256)",
-    "function delegate(address delegatee) returns (bool)"
+    "function delegate(address delegatee)"
 ];
 
 const governorAbi = [
+    "event ProposalCreated(uint256 proposalId,address proposer,address[] targets,uint256[] values,string[] signatures,bytes[] calldatas,uint256 voteStart,uint256 voteEnd,string description)",
     "function state(uint256 proposalId) view returns (uint8)",
     "function proposalVotes(uint256 proposalId) view returns (uint256 againstVotes,uint256 forVotes,uint256 abstainVotes)",
     "function castVote(uint256 proposalId,uint8 support) returns (uint256)"
@@ -24,6 +25,7 @@ const elements = {
     saveContractsButton: document.querySelector("#saveContractsButton"),
     delegateVotesButton: document.querySelector("#delegateVotesButton"),
     loadProposalButton: document.querySelector("#loadProposalButton"),
+    loadRecentProposalsButton: document.querySelector("#loadRecentProposalsButton"),
     tokenAddressInput: document.querySelector("#tokenAddressInput"),
     governorAddressInput: document.querySelector("#governorAddressInput"),
     delegateAddressInput: document.querySelector("#delegateAddressInput"),
@@ -43,6 +45,7 @@ elements.connectWalletButton.addEventListener("click", connectWallet);
 elements.saveContractsButton.addEventListener("click", saveContracts);
 elements.delegateVotesButton.addEventListener("click", delegateVotes);
 elements.loadProposalButton.addEventListener("click", loadProposal);
+elements.loadRecentProposalsButton.addEventListener("click", loadRecentProposals);
 
 document.querySelectorAll("[data-support]").forEach((button) => {
     button.addEventListener("click", () => castVote(Number(button.dataset.support)));
@@ -134,6 +137,26 @@ async function loadProposal() {
     const trackedProposalIds = new Set(JSON.parse(localStorage.getItem("trackedProposalIds") || "[]"));
     trackedProposalIds.add(proposalId);
     localStorage.setItem("trackedProposalIds", JSON.stringify([...trackedProposalIds]));
+    await renderProposals();
+}
+
+async function loadRecentProposals() {
+    if (!governorContract || !provider) {
+        logActivity("Connect wallet and save governor address first.");
+        return;
+    }
+
+    const latestBlockNumber = await provider.getBlockNumber();
+    const fromBlock = Math.max(0, latestBlockNumber - 50_000);
+    const proposalEvents = await governorContract.queryFilter("ProposalCreated", fromBlock, latestBlockNumber);
+    const trackedProposalIds = new Set(JSON.parse(localStorage.getItem("trackedProposalIds") || "[]"));
+
+    for (const proposalEvent of proposalEvents) {
+        trackedProposalIds.add(proposalEvent.args.proposalId.toString());
+    }
+
+    localStorage.setItem("trackedProposalIds", JSON.stringify([...trackedProposalIds]));
+    logActivity(`Loaded ${proposalEvents.length} recent proposals.`);
     await renderProposals();
 }
 

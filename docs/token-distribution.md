@@ -1,6 +1,6 @@
 # Token Distribution
 
-Total supply: 1,000,000 GOV
+Total supply: 100,000,000 GOV
 
 ```mermaid
 pie title GOV Initial Distribution
@@ -12,9 +12,9 @@ pie title GOV Initial Distribution
 
 | Allocation | Amount | Destination |
 | --- | ---: | --- |
-| Team vesting | 400,000 GOV | `TokenVesting` |
-| Treasury | 300,000 GOV | `Treasury` |
-| Community airdrop | 200,000 GOV | Community wallet |
-| Liquidity | 100,000 GOV | Liquidity wallet |
+| Team vesting | 40,000,000 GOV | `TokenVesting` |
+| Treasury | 30,000,000 GOV | `Treasury` |
+| Community airdrop | 20,000,000 GOV | Community wallet |
+| Liquidity | 10,000,000 GOV | Liquidity wallet |
 
-The team allocation is released linearly over 365 days to the team beneficiary.
+The team allocation is minted directly to `TokenVesting` during deployment and releases linearly to the team wallet over 365 days.
